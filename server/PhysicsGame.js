@@ -98,6 +98,7 @@ PhysicsGame.prototype.Init = function()
     this.physics.gameScale = (1 / 10);
     this.physics.gameInvScale = 10;
     this.mouseJoint = null;
+    this.physics.bodys = [];
     
     // 创建包围墙
     CreataStaticBox(this, WorldWidht, 10, WorldWidht/2, 5);
@@ -105,7 +106,10 @@ PhysicsGame.prototype.Init = function()
     CreataStaticBox(this, WorldWidht, 10, WorldWidht/2, WorldHeight-5);
     CreataStaticBox(this, 10, WorldHeight, WorldWidht-5, WorldHeight/2);
     
-    this.body = CreateDynamicBox(this, BodyWidth, BodyHeight, WorldWidht/2, WorldHeight/2, Math.random() * 180);
+    for (var i = 0; i < 10; ++i) {
+        var body = CreateDynamicBox(this, BodyWidth, BodyHeight, WorldWidht/2, WorldHeight/2, Math.random() * 180);
+        this.physics.bodys.push(body);
+    }
 
     // 设置更新
     setInterval(function(){
@@ -129,12 +133,21 @@ PhysicsGame.prototype.Update = function(dt)
                4       //position iterations
     );
     
-    var p = this.body.GetPosition();
-    var a = this.body.GetAngle();
+    var body, pos, ang;
+    var bodyDatas = [];
     var player;
+    for (var ib = 0; ib < this.physics.bodys.length; ++ib) {
+        body = this.physics.bodys[ib];
+        pos = this.body.GetPosition();
+        ang = this.body.GetAngle();
+        bodyDatas.push(pos.x * this.physics.gameInvScale);
+        bodyDatas.push(pos.y * this.physics.gameInvScale);
+        bodyDatas.push(ang);
+    }
+    
     for (var i = 0; i < this.players.length; ++i) {
         player = this.players[i];
-        player.socket.emit('physicsSynchro', { 'body_x' : p.x * this.physics.gameInvScale, 'body_y' : p.y * this.physics.gameInvScale, 'body_angle' : a});
+        player.socket.emit('physicsSynchro', bodyDatas);
     }
     
     // 放在最后
@@ -158,7 +171,7 @@ PhysicsGame.prototype.NewClient = function(client)
         client.player = newPlayer; 
         server.players.push(newPlayer);
         
-        var data = { 'id' :  socket.id, 'body_width' : BodyWidth, 'body_height' : BodyHeight };
+        var data = { 'id' :  socket.id, 'body_width' : BodyWidth, 'body_height' : BodyHeight,  'bodys': this.physics.bodys.length };
         socket.emit('enterGameBack', data);
     });
     

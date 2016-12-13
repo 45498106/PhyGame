@@ -88,6 +88,8 @@
             this.touchDown = false;
             this.touchX = 0;
             this.touchY = 0;
+            
+            this.bodyBoxs = [];
  
             engine.Start();
         }
@@ -155,13 +157,20 @@
             var socket = this.net.socket;
     
             socket.on('enterGameBack', function (data) {
-                game.bodyBox = new BodyBox(data.body_width, data.body_height);
+                for (var i = 0; i < data.bodys; ++i) {
+                    this.bodyBoxs.push(new BodyBox(data.body_width, data.body_height));
+                }
             });
             
             socket.on('physicsSynchro', function (data) {
-                game.bodyBox.x = data.body_x;
-                game.bodyBox.y = data.body_y;
-                game.bodyBox.angle = data.body_angle;
+                var box,idx;
+                for (var i = 0; i < (data.length / 3); ++i)
+                    box = this.bodyBoxs[i];
+                    idx = i * 3;
+                    box.x = data[idx];
+                    box.y = data[idx+1];
+                    box.angle = data[idx+2];
+                }
             });
         }
         
