@@ -135,8 +135,8 @@
             // 使用相机
             this.camera.Begin(ctx, engine.designCanvasWidth, engine.designCanvasHeight);
             
-            if (this.bodyBox) {
-                this.bodyBox.Draw(ctx);
+            if (var i = 0; i < this.bodyBoxs.length; ++i) {
+                this.bodyBox[i].Draw(ctx);
             }
             
             ctx.fillStyle="white";
