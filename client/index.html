@@ -135,7 +135,7 @@
             // 使用相机
             this.camera.Begin(ctx, engine.designCanvasWidth, engine.designCanvasHeight);
             
-            if (var i = 0; i < this.bodyBoxs.length; ++i) {
+            for (var i = 0; i < this.bodyBoxs.length; ++i) {
                 this.bodyBox[i].Draw(ctx);
             }
             
@@ -164,7 +164,7 @@
             
             socket.on('physicsSynchro', function (data) {
                 var box,idx;
-                for (var i = 0; i < (data.length / 3); ++i)
+                for (var i = 0; i < (data.length / 3); ++i) {
                     box = this.bodyBoxs[i];
                     idx = i * 3;
                     box.x = data[idx];
