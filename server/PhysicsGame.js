@@ -171,7 +171,7 @@ PhysicsGame.prototype.NewClient = function(client)
         client.player = newPlayer; 
         server.players.push(newPlayer);
         
-        var data = { 'id' :  socket.id, 'body_width' : BodyWidth, 'body_height' : BodyHeight,  'bodys': this.physics.bodys.length };
+        var data = { 'id' :  socket.id, 'body_width' : BodyWidth, 'body_height' : BodyHeight,  'bodys': server.physics.bodys.length };
         socket.emit('enterGameBack', data);
     });
     
