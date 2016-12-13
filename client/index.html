@@ -165,7 +165,7 @@
             socket.on('physicsSynchro', function (data) {
                 var box,idx;
                 for (var i = 0; i < (data.length / 3); ++i) {
-                    box = this.bodyBoxs[i];
+                    box = game.bodyBoxs[i];
                     idx = i * 3;
                     box.x = data[idx];
                     box.y = data[idx+1];
