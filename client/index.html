@@ -1,0 +1,182 @@
+<!doctype html>
+<html >
+<head>
+    <meta charset="UTF-8">
+    <title>碰碰车</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" >
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="fullscreen" content="true"/>
+    <meta name="screen-orientation" content="portrait"/>    
+    <meta name="x5-fullscreen" content="true"/>
+    <meta name="360-fullscreen" content="true"/>
+    <meta name="browsermode" content="application">
+    <title>工具</title>
+    <style>
+        /*新增加此条样式*/
+        * {
+            margin:0px;
+            font-family: monospace;
+        }
+        html,body{
+            width:100%;
+            height:100%;
+        }
+        
+        body{
+            background-image: url(images/banner.jpg);
+        }
+    </style>
+    <script src="./socket.io/socket.io.js"></script>
+    <script src="./js/libs/screenfull.min.js"></script>
+    <script src="./js/Engine.js"></script>
+    <script src="./js/Net.js"></script>
+    <script>
+    
+        var Resource = engine.core.Resource,
+            Sprite = engine.core.Sprite,
+            GameLog = engine.commom.Logger,
+            Input = engine.core.Input,
+            Util = engine.commom.Util;
+    
+        function BodyBox(w, h) {
+            this.x = 0;
+            this.y = 0;
+            this.w = w;
+            this.h = h;
+            this.angle = 0;
+            this.sprite = new Sprite();
+            this.sprite.image = Resource.GetImage("./images/box.png");
+            this.sprite.width = this.w;
+            this.sprite.height = this.h;
+        }
+        
+        BodyBox.prototype.Draw = function(ctx) {
+            this.sprite.x = this.x;
+            this.sprite.y = this.y;
+            this.sprite.rotation = Util.Degrees(this.angle);
+            this.sprite.Draw(ctx);
+        }
+    
+        function Game() {
+
+        }
+       
+        Game.prototype.Init = function ()
+        {
+            //GameLog.socket = io('http://192.168.1.222:38086');
+      
+            var canvas = document.getElementById('GameCanvas');
+            engine.InitCanvas(canvas, true);
+            
+            engine.showStats = true;
+            
+            engine.onFrame = function(game) {
+                return function(dt) { 
+                    game.Frame(dt); 
+                }; 
+            }(this);
+            
+            this.camera = new engine.core.Camera();
+            this.camera.x = engine.designCanvasWidth / 2;
+            this.camera.y = engine.designCanvasHeight / 2;
+            
+            this.net = new Net();
+            this.net.Start();
+            this.net.socket.emit('enterGame');
+            this.PacketHandler();
+            
+            this.touchDown = false;
+            this.touchX = 0;
+            this.touchY = 0;
+ 
+            engine.Start();
+        }
+        
+        Game.prototype.Frame = function (dt)
+        {
+            this.Update(dt);
+            this.Draw();
+        }
+        
+        Game.prototype.Update = function (dt)
+        {
+            
+            if (!this.net.disconnected) {
+                var socket = this.net.socket;
+                
+                if(Input.MouseIsDown(['l'])) {
+                   var x = Input.GetMouseX(engine.canvas) / engine.canvasScaleX;
+                   var y = ((engine.canvas.height - Input.GetMouseY(engine.canvas)) / engine.canvasScaleY);
+                   if (this.touchDown === false || (this.touchX !== x || this.touchY !== y)) {
+                        this.touchDown = true;
+                        this.touchX = x;
+                        this.touchY = y;
+                        socket.emit('input', { 'state':1, 'x': this.touchX, 'y': this.touchY });
+                   }
+                }else {
+                    if (this.touchDown === true) {
+                        this.touchDown = false;
+                        socket.emit('input', { 'state':0 });
+                   }
+                }
+            }
+        }
+        
+        Game.prototype.Draw = function ()
+        {
+            var ctx = engine.context;
+            ctx.save();
+            
+            ctx.fillStyle="black";
+            ctx.fillRect(0,0, ctx.canvas.width, ctx.canvas.height);
+            
+            // 使用相机
+            this.camera.Begin(ctx, engine.designCanvasWidth, engine.designCanvasHeight);
+            
+            if (this.bodyBox) {
+                this.bodyBox.Draw(ctx);
+            }
+            
+            ctx.fillStyle="white";
+            ctx.fillRect(0, 0, 320, 10);
+            ctx.fillRect(0, 0, 10, 480);
+            ctx.fillRect(0,480-10, 320, 10);
+            ctx.fillRect(320-10, 0, 10, 480);
+
+            // 结束相机
+            this.camera.End(ctx);
+    
+            ctx.restore();
+        }
+        
+        Game.prototype.PacketHandler = function()
+        {
+            var game = this;
+            var socket = this.net.socket;
+    
+            socket.on('enterGameBack', function (data) {
+                game.bodyBox = new BodyBox(data.body_width, data.body_height);
+            });
+            
+            socket.on('physicsSynchro', function (data) {
+                game.bodyBox.x = data.body_x;
+                game.bodyBox.y = data.body_y;
+                game.bodyBox.angle = data.body_angle;
+            });
+        }
+        
+        game = new Game();
+
+        function Start() {
+            game.Init();
+        }
+    </script>
+</head>
+<body onload="Start()">
+    <div id="GameContent" style="width:320px; margin:0 auto; display:block;">
+    <canvas id='GameCanvas' width="320px" height="480px" style="background-color: #fff;position:absolute;top:0px;" oncontextmenu="return false">
+        <p>Can't load HTML 5 canvas: is your browser up to date?</p>
+    </canvas>
+    </div>
+</body>
+</html>

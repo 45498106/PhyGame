@@ -1,0 +1,33 @@
+{
+  "name": "PhyGame",
+  "version": "1.0.0",
+  "description": "html game",
+  "main": "PhysicsSrv.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node PhysicsSrv.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Senecio/PhyGame.git"
+  },
+  "keywords": [
+    "h5",
+    "game",
+    "online"
+  ],
+  "author": "lsh",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Senecio/PhyGame/issues"
+  },
+  "homepage": "https://github.com/Senecio/PhyGame#readme",
+  "dependencies": {
+    "express": "4.12.3",
+    "socket.io": "^1.4.8",
+    "leanengine": "^1.0.0-beta"
+  },
+  "engines": {
+    "node": "4.x"
+  }
+}
