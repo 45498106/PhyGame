@@ -140,9 +140,9 @@ PhysicsGame.prototype.Update = function(dt)
         body = this.physics.bodys[ib];
         pos = body.GetPosition();
         ang = body.GetAngle();
-        bodyDatas.push(pos.x * this.physics.gameInvScale);
-        bodyDatas.push(pos.y * this.physics.gameInvScale);
-        bodyDatas.push(ang);
+        bodyDatas.push(parseInt(pos.x * this.physics.gameInvScale));
+        bodyDatas.push(parseInt(pos.y * this.physics.gameInvScale));
+        bodyDatas.push(parseInt(Util.Degrees(ang)));
     }
     
     for (var i = 0; i < this.players.length; ++i) {

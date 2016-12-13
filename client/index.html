@@ -53,7 +53,7 @@
         BodyBox.prototype.Draw = function(ctx) {
             this.sprite.x = this.x;
             this.sprite.y = this.y;
-            this.sprite.rotation = Util.Degrees(this.angle);
+            this.sprite.rotation = -this.angle;
             this.sprite.Draw(ctx);
         }
     
