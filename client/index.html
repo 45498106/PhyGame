@@ -158,7 +158,7 @@
     
             socket.on('enterGameBack', function (data) {
                 for (var i = 0; i < data.bodys; ++i) {
-                    this.bodyBoxs.push(new BodyBox(data.body_width, data.body_height));
+                    game.bodyBoxs.push(new BodyBox(data.body_width, data.body_height));
                 }
             });
             
