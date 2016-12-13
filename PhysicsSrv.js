@@ -20,6 +20,8 @@ http.listen( process.env.LEANCLOUD_APP_PORT, function() {
     console.log('[DEBUG] Listening on *:' + process.env.LEANCLOUD_APP_PORT);
 });
 
+IO = require('socket.io')(http);
+
 Util = require("./common/Utility.js");
 GameLog = require('./common/Logger.js');
 
