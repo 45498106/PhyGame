@@ -112,7 +112,7 @@ PhysicsGame.prototype.Init = function()
         this._pdt = (new Date().getTime() - this._pdte) / 1000.0;
         this._pdte = new Date().getTime();
         if (this._pdt > 0.04) {
-            //GameLog("!!!###########this._pdt=", this._pdt);
+            GameLog("!!!###########this._pdt=", this._pdt);
         }
         this.Update(this._pdt);
     }.bind(this), 1000.0/30.0);
