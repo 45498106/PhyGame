@@ -30,31 +30,66 @@
     <script src="./js/libs/screenfull.min.js"></script>
     <script src="./js/Engine.js"></script>
     <script src="./js/Net.js"></script>
+    <script src="./js/UIJoystick.js"></script>
+    <script src="./js/CameraFllow.js"></script>
     <script>
     
+        var isMobile = navigator.userAgent.match(/android|iphone|ipod|blackberry|meego|symbianos|windowsphone|ucbrowser/i);
+
         var Resource = engine.core.Resource,
             Sprite = engine.core.Sprite,
             GameLog = engine.commom.Logger,
             Input = engine.core.Input,
             Util = engine.commom.Util;
+            Vec2 = engine.commom.Vec2;
     
-        function BodyBox(w, h) {
-            this.x = 0;
-            this.y = 0;
-            this.w = w;
-            this.h = h;
-            this.angle = 0;
+        function Car(x, y, angle) {
+            this.position = new Vec2(x, y);
+            this.serverPosition = new Vec2(x, y);
+            this.angle = angle;
             this.sprite = new Sprite();
-            this.sprite.image = Resource.GetImage("./images/box.png");
-            this.sprite.width = this.w;
-            this.sprite.height = this.h;
+            this.sprite.image = Resource.GetImage("./images/pengpeng-car.png");
+            this.sprite.scaleX = this.sprite.scaleY = 0.35;
         }
         
-        BodyBox.prototype.Draw = function(ctx) {
-            this.sprite.x = this.x;
-            this.sprite.y = this.y;
+        Car.prototype.Draw = function(ctx) {
+            this.sprite.x = this.position.x;
+            this.sprite.y = this.position.y;
             this.sprite.rotation = -this.angle;
             this.sprite.Draw(ctx);
+        }
+        
+        Car.prototype.Update = function(dt) {
+            var ddt = dt / 0.03333;
+            var dx = (this.serverPosition.x - this.position.x) * ddt;
+            var dy = (this.serverPosition.y - this.position.y) * ddt;
+            if (this.serverPosition.x >= this.position.x) {
+                this.position.x += dx;
+                if (this.position.x > this.serverPosition.x) {
+                    GameLog("dx", Math.abs(this.position.x - this.serverPosition.x));
+                    this.position.x = this.serverPosition.x;
+                }
+            }else {
+                this.position.x += dx;
+                if (this.position.x < this.serverPosition.x) {
+                    GameLog("dx", Math.abs(this.position.x - this.serverPosition.x));
+                    this.position.x = this.serverPosition.x;
+                }
+            }
+            
+            if (this.serverPosition.y >= this.position.y) {
+                this.position.y += dy;
+                if (this.position.y > this.serverPosition.y) {
+                    GameLog("dy", Math.abs(this.position.y - this.serverPosition.y));
+                    this.position.y = this.serverPosition.y;
+                }
+            }else {
+                this.position.y += dy;
+                if (this.position.y < this.serverPosition.y) {
+                    GameLog("dy", Math.abs(this.position.y - this.serverPosition.y));
+                    this.position.y = this.serverPosition.y;
+                }
+            }
         }
     
         function Game() {
@@ -89,7 +124,22 @@
             this.touchX = 0;
             this.touchY = 0;
             
-            this.bodyBoxs = [];
+            this.cars = [];
+            this.selfCar = null;
+            
+            this.keyboardInput = {};
+            this.keyboardInput.accelerate = 0;  // 0 : node, 1 : up, 2 : down;
+            this.keyboardInput.turn = 0;        // 0 : node, 1 : left, 2 : right;
+            
+            this.joystickInput = {};
+            this.joystickInput.dir = new Vec2(0, 0);
+            
+            if (isMobile) {
+                this.joystick = new UIJoystick();
+            }
+            
+            this.cameraFllower = new CameraFllow();
+            this.cameraFllower.Init(this.camera);
  
             engine.Start();
         }
@@ -102,25 +152,126 @@
         
         Game.prototype.Update = function (dt)
         {
+            if (this.joystick) {
+                this.joystick.Update(dt);
+            }
             
+            for (var i = 0; i < this.cars.length; ++i) {
+                this.cars[i].Update(dt);
+            }
+            
+            if (this.cameraFllower) {
+                this.cameraFllower.Update(dt);
+            }
+        
             if (!this.net.disconnected) {
                 var socket = this.net.socket;
                 
-                if(Input.MouseIsDown(['l'])) {
-                   var x = Input.GetMouseX(engine.canvas) / engine.canvasScaleX;
-                   var y = ((engine.canvas.height - Input.GetMouseY(engine.canvas)) / engine.canvasScaleY);
-                   if (this.touchDown === false || (this.touchX !== x || this.touchY !== y)) {
-                        this.touchDown = true;
-                        this.touchX = x;
-                        this.touchY = y;
-                        socket.emit('input', { 'state':1, 'x': this.touchX, 'y': this.touchY });
-                   }
-                }else {
-                    if (this.touchDown === true) {
-                        this.touchDown = false;
-                        socket.emit('input', { 'state':0 });
-                   }
+                if (!isMobile) {
+                    var send = false;
+                    if (Input.KeyboardIsDown('up')) {
+                        if (this.keyboardInput.accelerate !== 1) {
+                            this.keyboardInput.accelerate = 1;
+                            send = true;
+                        }
+                    }else if (Input.KeyboardIsDown('down')) {
+                        if (this.keyboardInput.accelerate !== 2) {
+                            this.keyboardInput.accelerate = 2;
+                            send = true;
+                        }
+                    }else if (this.keyboardInput.accelerate !== 0) {
+                        this.keyboardInput.accelerate = 0;
+                        send = true;
+                    }
+                    
+                    if (Input.KeyboardIsDown('left')) {
+                        if (this.keyboardInput.turn !== 1) {
+                            this.keyboardInput.turn = 1;
+                            send = true;
+                        }
+                    }else if (Input.KeyboardIsDown('right')) {
+                        if (this.keyboardInput.turn !== 2) {
+                            this.keyboardInput.turn = 2;
+                            send = true;
+                        }
+                    }else if(this.keyboardInput.turn !== 0) {
+                        this.keyboardInput.turn = 0;
+                        send = true;
+                    }
+                    
+                    if (send) {
+                        socket.emit('input', { 'accelerate' :  this.keyboardInput.accelerate, 'turn' : this.keyboardInput.turn });
+                        //GameLog( Input.KeyboardIsDown('up'), this.keyboardInput.accelerate, this.keyboardInput.turn);
+                    }
                 }
+                else {
+                    var send = false;
+                    var dir = this.joystick.GetDirVector();
+                    if (dir.x !== this.joystickInput.dir.x &&
+                        dir.y !== this.joystickInput.dir.y) {
+                        
+                        if (dir.x !== 0 && dir.y !== 0 &&
+                            this.joystickInput.dir.x !== 0 &&
+                            this.joystickInput.dir.y !== 0) {
+                            
+                            var dot = dir.Dot(this.joystickInput.dir);
+                            if (dot < /*0.9916*/ 0.9659) {
+                                send = true;
+                            }else if(Math.abs(dir.Length() - this.joystickInput.dir.Length()) > 0.1) {
+                                send = true;
+                            }
+                        }else {
+                            send = true;
+                        }
+                        
+                        if (send) {
+                            this.joystickInput.dir.x = dir.x;
+                            this.joystickInput.dir.y = dir.y;
+                            socket.emit('input', { 'dir_x' : dir.x, 'dir_y' : dir.y });
+                        }
+                    }
+                }
+            }
+        }
+        
+        Game.prototype.DrawPingText = function(ctx)
+        {
+            ctx.font="10px Verdana";
+            ctx.fillStyle="rgb(255,255,255)";
+            var text = 'Ping: ' + this.net.pingInterval + 'ms';
+            ctx.fillText(text, engine.designCanvasWidth - 80, 20);
+        }
+        
+        
+        Game.prototype.DrawBackground = function(ctx)
+        {
+            if (typeof this.worldWidth !== 'undefined' && 
+                typeof this.worldHeight !== 'undefined') {
+                
+                ctx.beginPath();
+                ctx.strokeStyle = "#444";
+                for (var i = 0; i < this.worldWidth; i += 50) {
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, this.worldHeight);
+                }
+                for (var j = 0; j < this.worldHeight; j += 50) {
+                    ctx.moveTo(0, j);
+                    ctx.lineTo(this.worldWidth, j);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+        }
+        Game.prototype.DrawBound = function(ctx)
+        {
+            if (typeof this.worldWidth !== 'undefined' && 
+                typeof this.worldHeight !== 'undefined') {
+            
+                ctx.fillStyle = "#999";
+                ctx.fillRect(0, 0, this.worldWidth, 10);
+                ctx.fillRect(0, 0, 10, game.worldHeight);
+                ctx.fillRect(0,game.worldHeight-10, this.worldWidth, 10);
+                ctx.fillRect(this.worldWidth-10, 0, 10, game.worldHeight);
             }
         }
         
@@ -134,19 +285,21 @@
             
             // 使用相机
             this.camera.Begin(ctx, engine.designCanvasWidth, engine.designCanvasHeight);
+            this.DrawBackground(ctx);
             
-            for (var i = 0; i < this.bodyBoxs.length; ++i) {
-                this.bodyBoxs[i].Draw(ctx);
+            for (var i = this.cars.length - 1; i >= 0; --i) {
+                this.cars[i].Draw(ctx);
             }
             
-            ctx.fillStyle="white";
-            ctx.fillRect(0, 0, 320, 10);
-            ctx.fillRect(0, 0, 10, 480);
-            ctx.fillRect(0,480-10, 320, 10);
-            ctx.fillRect(320-10, 0, 10, 480);
-
+            this.DrawBound(ctx);
             // 结束相机
             this.camera.End(ctx);
+            
+            if (this.joystick) {
+                this.joystick.Draw(ctx);
+            }
+            
+            this.DrawPingText(ctx);
     
             ctx.restore();
         }
@@ -157,20 +310,37 @@
             var socket = this.net.socket;
     
             socket.on('enterGameBack', function (data) {
-                for (var i = 0; i < data.bodys; ++i) {
-                    game.bodyBoxs.push(new BodyBox(data.body_width, data.body_height));
-                }
+                game.worldWidth = data.world_width;
+                game.worldHeight = data.world_height;
+                var car = new Car(data.car_x, data.car_y, data.car_ang);
+                game.selfCar = car; 
+                game.cameraFllower.Init(game.camera,
+                                    new engine.commom.AABB(new Vec2(engine.designCanvasWidth/2, engine.designCanvasHeight/2), 
+                                                           new Vec2(game.worldWidth- engine.designCanvasWidth/2, game.worldHeight - engine.designCanvasHeight/2))
+                                    );
+                game.cameraFllower.Attach(game.selfCar, new Vec2(0, 0), 1.0);
+                game.cars.push(car);
             });
             
             socket.on('physicsSynchro', function (data) {
-                var box,idx;
+                /*var box,idx;
                 for (var i = 0; i < (data.length / 3); ++i) {
                     box = game.bodyBoxs[i];
                     idx = i * 3;
                     box.x = data[idx];
                     box.y = data[idx+1];
                     box.angle = data[idx+2];
+                }*/
+                
+                if (game.selfCar) {
+                    //GameLog("1",game.selfCar.position.x - data[0], game.selfCar.position.y - data[1])
+                    game.selfCar.serverPosition.x = data[0];
+                    game.selfCar.serverPosition.y = data[1];
+                    //game.selfCar.position.x = data[0];
+                    //game.selfCar.position.y = data[1];
+                    game.selfCar.angle = data[2];
                 }
+                
             });
         }
         
