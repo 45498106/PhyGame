@@ -4,20 +4,21 @@
 
 var express = require('express');
 var app = express();
-var AV = require('leanengine');
 var http = require('http').Server(app);
 
+var AV = require('leanengine');
 AV.init({
   appId: process.env.LEANCLOUD_APP_ID || 'rH2mPgbjWGEf228we1rNQxMw-9Nh9j0Va',
   appKey: process.env.LEANCLOUD_APP_KEY || 'yikuJUITOfqB1lIqm3zPfom3',
   masterKey: process.env.LEANCLOUD_APP_MASTER_KEY || 'hAC6X9v0Ya7bvsM46NNLKLfE'
 });
-
 app.use(AV.express());
+
 app.use(express.static(__dirname + "/client"));
 
-http.listen( process.env.LEANCLOUD_APP_PORT, function() {
-    console.log('[DEBUG] Listening on *:' + process.env.LEANCLOUD_APP_PORT);
+var port = process.env.LEANCLOUD_APP_PORT || 80
+http.listen( port, function() {
+    console.log('[DEBUG] Listening on *:' + port);
 });
 
 IO = require('socket.io')(http);

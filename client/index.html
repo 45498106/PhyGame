@@ -43,7 +43,8 @@
             Util = engine.commom.Util;
             Vec2 = engine.commom.Vec2;
     
-        function Car(x, y, angle) {
+        function Car(id, x, y, angle) {
+            this.id = id;
             this.position = new Vec2(x, y);
             this.serverPosition = new Vec2(x, y);
             this.angle = angle;
@@ -125,6 +126,7 @@
             this.touchY = 0;
             
             this.cars = [];
+            this.carsMap = {};
             this.selfCar = null;
             
             this.keyboardInput = {};
@@ -312,7 +314,7 @@
             socket.on('enterGameBack', function (data) {
                 game.worldWidth = data.world_width;
                 game.worldHeight = data.world_height;
-                var car = new Car(data.car_x, data.car_y, data.car_ang);
+                var car = new Car(data.car_id, data.car_x, data.car_y, data.car_ang);
                 game.selfCar = car; 
                 game.cameraFllower.Init(game.camera,
                                     new engine.commom.AABB(new Vec2(engine.designCanvasWidth/2, engine.designCanvasHeight/2), 
@@ -320,27 +322,43 @@
                                     );
                 game.cameraFllower.Attach(game.selfCar, new Vec2(0, 0), 1.0);
                 game.cars.push(car);
+                game.carsMap[car.id] = car;
+            });
+            
+            socket.on('playerList', function (data) {
+                var car;
+                for (var i = 0; i < data.length; ++i) {
+                    car = new Car(data[i].car_id, data[i].car_x, data[i].car_y, data[i].car_ang);
+                    game.cars.push(car);
+                    game.carsMap[car.id] = car;
+                }
+            });
+            
+            socket.on('newPlayer', function (data) {
+                var car = new Car(data.car_id, data.car_x, data.car_y, data.car_ang);
+                game.cars.push(car);
+                game.carsMap[car.id] = car;
+                
+            });
+            
+            socket.on('losePlayer', function (data) {
+                var carId = data;
+                var idx = Util.FindIndex(game.cars, carId);
+                if ( idx >= 0 ) {
+                    game.cars.splice(idx, 1);
+                }
+                delete game.carsMap.carId;
             });
             
             socket.on('physicsSynchro', function (data) {
-                /*var box,idx;
-                for (var i = 0; i < (data.length / 3); ++i) {
-                    box = game.bodyBoxs[i];
-                    idx = i * 3;
-                    box.x = data[idx];
-                    box.y = data[idx+1];
-                    box.angle = data[idx+2];
-                }*/
-                
-                if (game.selfCar) {
-                    //GameLog("1",game.selfCar.position.x - data[0], game.selfCar.position.y - data[1])
-                    game.selfCar.serverPosition.x = data[0];
-                    game.selfCar.serverPosition.y = data[1];
-                    //game.selfCar.position.x = data[0];
-                    //game.selfCar.position.y = data[1];
-                    game.selfCar.angle = data[2];
+                var idx, carId;
+                for (var i = 0; i < (data.length / 4); ++i) {
+                    idx = i * 4;
+                    carId = data[idx];
+                    game.carsMap[carId].serverPosition.x = data[idx + 1];
+                    game.carsMap[carId].serverPosition.y = data[idx + 2];
+                    game.carsMap[carId].angle = data[idx + 3];
                 }
-                
             });
         }
         

@@ -75,9 +75,10 @@ function Wheel(game, car, x, y, revolving, angle)
     }
 }
         
-function Car(game, x, y)
+function Car(game, id, x, y)
 {
     this.game = game;
+    this.id = id;
     this.position = new b2Vec2(x*game.physics.gameScale, y*game.physics.gameScale);
     this.enginePower = 35;
     var fixDef = new b2FixtureDef;

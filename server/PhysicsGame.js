@@ -20,6 +20,7 @@ b2CircleShape = Box2D.Collision.Shapes.b2CircleShape;
 
 var Car = require('./Car.js');
 
+var RoomName = "RoomName";
 var WorldWidht = 320*10, WorldHeight = 480*10;
             
 function CreataStaticBox(game, w, h, x, y) {
@@ -88,6 +89,7 @@ function PhysicsGame()
 PhysicsGame.prototype.Init = function()
 {
     this.players = [];
+    this.carId = 0;
 
     this.physics = {}
     this.physics.world = new b2World(
@@ -118,7 +120,8 @@ PhysicsGame.prototype.Init = function()
 
 PhysicsGame.prototype.Update = function(dt)
 {
-    var player, carPos, carAng;
+    var player, carId, carPos, carAng;
+    
     for (var i = 0; i < this.players.length; ++i) {
         player = this.players[i];
         player.car.Update(dt);
@@ -130,17 +133,30 @@ PhysicsGame.prototype.Update = function(dt)
                4       //position iterations
     );
     
+    var datas = [];
     for (var i = 0; i < this.players.length; ++i) {
         player = this.players[i];
-        var carPos = player.car.GetPosition();
-        var carAng = player.car.GetAngle();
-        player.socket.emit('physicsSynchro', [carPos.x, carPos.y, parseInt(Util.Degrees(carAng))]);
+        carId = player.car.id;
+        carPos = player.car.GetPosition();
+        carAng = Util.Degrees(player.car.GetAngle());
+        
+        datas.push(carId);
+        datas.push(parseInt(carPos.x));
+        datas.push(parseInt(carPos.y));
+        datas.push(parseInt(carAng));
+    }
+    if (datas.length > 0) {
+        this.BroadcastPlayers('physicsSynchro', datas);
     }
     
     // 放在最后
     this.physics.world.ClearForces();
 }
 
+PhysicsGame.prototype.NewCarId = function()
+{
+    return ++this.carId;
+}
 
 PhysicsGame.prototype.NewClient = function(client)
 {
@@ -154,20 +170,30 @@ PhysicsGame.prototype.NewClient = function(client)
             return;
         }
         
-        var newPlayer = { 'socket' : socket, 
-                          'car' : new Car(server, 100, 100) };
+        var newPlayer = { 'id' : socket.id,
+                          'socket' : socket, 
+                          'car' : new Car(server, server.NewCarId(), 100, 100) };
 
         client.player = newPlayer; 
-        server.players.push(newPlayer);
         
+        var carId = newPlayer.car.id;
         var carPos = newPlayer.car.GetPosition();
-        var carAng = newPlayer.car.GetAngle()
+        var carAng = Util.Degrees(newPlayer.car.GetAngle());
         
         var data = { 'id' :  socket.id, 
-                     'world_width' : WorldWidht, 'world_height' : WorldHeight, 
-                     'car_x' : carPos.x, 'car_y' : carPos.y, 'car_ang' : carAng};
+                     'world_width' : WorldWidht, 'world_height' : WorldHeight,
+                     'car_id' : carId,
+                     'car_x' : carPos.x, 'car_y' : carPos.y, 'car_ang' : carAng };
         
+        // 先通知自己创建自己的单位
         socket.emit('enterGameBack', data);
+        // 再通知其他玩家创建自己的单位
+        server.BroadcastPlayers("newPlayer", {'car_id' : carId, 'car_x' : carPos.x, 'car_y' : carPos.y, 'car_ang' : carAng });
+        // 再自己创建其他玩家的单位 hack!!!
+        server.SendPlayersTo(newPlayer);
+        // 加入广播房间
+        socket.join(RoomName);
+        server.players.push(newPlayer);
     });
     
     socket.on('input', function (data) {
@@ -185,7 +211,10 @@ PhysicsGame.prototype.DeleteClient = function(client)
 {
     var player = client.player;
     if (player) {
+        var carId = player.car.id;
         player.car.Destroy();
+        player.socket.leave(RoomName);
+        this.BroadcastPlayers("losePlayer", carId);
         var idx = Util.FindIndex(this.players, player.id);
         if ( idx >= 0 ) {
             this.players.splice(idx, 1);
@@ -193,3 +222,27 @@ PhysicsGame.prototype.DeleteClient = function(client)
         client.player = null;
     }
 }
+
+PhysicsGame.prototype.BroadcastPlayers = function(action, data)
+{
+    IO.to(RoomName).emit(action, data);
+}
+
+PhysicsGame.prototype.SendPlayersTo = function(who)
+{
+    var player, carId, carPos, carAng;
+    var datas = [];
+    
+    for (var i = 0; i < this.players.length; ++i){
+        player = this.players[i];
+        carId = player.car.id;
+        carPos = player.car.GetPosition();
+        carAng = Util.Degrees(player.car.GetAngle());
+        var data = {'car_id' : carId, 'car_x' : carPos.x, 'car_y' : carPos.y, 'car_ang' : carAng }
+        datas.push(data);
+    }
+    if (datas.length > 0) {
+        who.socket.emit("playerList", datas);
+    }
+}
+
