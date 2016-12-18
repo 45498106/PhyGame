@@ -2,6 +2,7 @@
 function CameraFllow()
 {
     this.attachObject =  undefined;
+    this._shakeTime = 0;
 }
 
 CameraFllow.prototype.Init = function(camera, bound)
@@ -57,6 +58,14 @@ CameraFllow.prototype.MoveBy = function(offset, time, callback)
         this._cameraDestPosition = this._cameraOldPosition.Add(offset);
         this._callback = callback;
     }
+}
+
+CameraFllow.prototype.Shake = function(offX, offY, duration)
+{
+    this._shakeTime = duration;
+    this._shakeOffX = offX;
+    this._shakeOffY = offY;
+    this._shakeDuration = duration;
 }
 
 CameraFllow.prototype.Update = function(dt)
@@ -124,8 +133,20 @@ CameraFllow.prototype.Update = function(dt)
             }
         }
     }
-}
+    
 
+    if (this._shakeTime > 0){
+        this._shakeTime -= dt;
+        if (this._shakeTime < 0){
+            this._shakeTime = 0;
+        }
+
+        var t = this._shakeTime / this._shakeDuration;
+        t = Math.sqrt(t);
+        this._camera.x += Util.RandomRange(-this._shakeOffX, this._shakeOffX) * t;
+        this._camera.y += Util.RandomRange(-this._shakeOffY, this._shakeOffY) * t;
+    }
+}
 
 CameraFllow.prototype.ClampBound = function()
 {

@@ -28,11 +28,24 @@
     </style>
     <script src="./socket.io/socket.io.js"></script>
     <script src="./js/libs/screenfull.min.js"></script>
+    <script src="./js/libs/howler.min.js"></script>
     <script src="./js/Engine.js"></script>
     <script src="./js/Net.js"></script>
     <script src="./js/UIJoystick.js"></script>
     <script src="./js/CameraFllow.js"></script>
+    <script src="./js/Ribbon.js"></script>
     <script>
+        var steerSound = new Howl({
+          src: ['./sound/steer.mp3', './sound/steer.ogg'],
+        });
+        
+        var revShortSound = new Howl({
+          src: ['./sound/CarRevShort0.mp3', './sound/steer.ogg'],
+        });
+        
+        var collisionWallSound = new Howl({
+          src: ['./sound/CarBump2.mp3', './sound/CarBump2.ogg'],
+        });
     
         var isMobile = navigator.userAgent.match(/android|iphone|ipod|blackberry|meego|symbianos|windowsphone|ucbrowser/i);
 
@@ -50,14 +63,45 @@
             this.angle = angle;
             this.sprite = new Sprite();
             this.sprite.image = Resource.GetImage("./images/pengpeng-car.png");
+            this.sprite.anchorPointY = 0.55;
             this.sprite.scaleX = this.sprite.scaleY = 0.35;
+            this.tailLight = new Sprite();
+            this.tailLight.image = Resource.GetImage("./images/tail-light.png");
+            this.tailLight.scaleX = this.tailLight.scaleY = 0.5;
         }
         
-        Car.prototype.Draw = function(ctx) {
-            this.sprite.x = this.position.x;
-            this.sprite.y = this.position.y;
-            this.sprite.rotation = -this.angle;
-            this.sprite.Draw(ctx);
+        Car.prototype.Draw = function(ctx, pass) {
+            if (pass === 0) {
+                if (this.ribbon) {
+                    this.ribbon.Draw(ctx);
+                }
+            
+                this.sprite.x = this.position.x;
+                this.sprite.y = this.position.y;
+                this.sprite.rotation = -this.angle;
+                this.sprite.Draw(ctx);
+            }else if (pass === 1) {
+            
+                if (this.id === game.selfCar.id && game.keyboardInput.accelerate === 2) {
+                    ctx.save();
+                    ctx.globalCompositeOperation="multiply";
+                    var r1 = new Vec2(-8, -20);
+                    r1.RotationSelf(-this.angle);
+                    this.tailLight.x = this.position.x + r1.x;
+                    this.tailLight.y = this.position.y + r1.y;
+                    this.tailLight.flipX = false;
+                    this.tailLight.Draw(ctx);
+                    
+                    var r2 = new Vec2(8, -20);
+                    r2.RotationSelf(-this.angle);
+                    
+                    this.tailLight.x = this.position.x + r2.x;
+                    this.tailLight.y = this.position.y + r2.y;
+                    this.tailLight.flipX = true;
+                    this.tailLight.Draw(ctx);
+                    ctx.restore();
+                }
+            }
         }
         
         Car.prototype.Update = function(dt) {
@@ -89,6 +133,111 @@
                 if (this.position.y < this.serverPosition.y) {
                     GameLog("dy", Math.abs(this.position.y - this.serverPosition.y));
                     this.position.y = this.serverPosition.y;
+                }
+            }
+            
+            function NormalAngle(angle) {
+                var a = angle % 360;
+                if (a < 0) {
+                    a += 360;
+                }
+                return a;
+            }
+            
+            if (this.ribbon) {
+            
+                if (!isMobile) {
+                    if (game.keyboardInput.accelerate === 1 && game.keyboardInput.turn !== 0) {
+                        if (!this.ribbon.IsBegin()) {
+                            this.ribbon.Begin(this);
+                            steerSound.play();
+                        }
+                    }
+                    else {
+                        if (this.ribbon.IsBegin()) {
+                            this.ribbon.End();
+                            steerSound.stop();
+                            if (game.keyboardInput.accelerate === 1) {
+                                if (!revShortSound.playing()) {
+                                    revShortSound.play();
+                                }
+                            }
+                        }
+                    }
+                }else {
+                    var stopSound = false;
+                    if (game.joystickInput.dir.Length() > 0) {
+                        var redians = Math.atan2(game.joystickInput.dir.y, game.joystickInput.dir.x);
+                        var joyAng = NormalAngle(Util.Degrees(redians)-90);
+                        var carAng = NormalAngle(this.angle);
+                        var betweenAng = Math.abs(joyAng - carAng);
+                        if (betweenAng > 30 &&  betweenAng < 150) {
+                            if (!this.ribbon.IsBegin()) {
+                                this.ribbon.Begin(this);
+                                steerSound.play();
+                            }
+                        }else {
+                            stopSound = true;
+                        }
+                    }else {
+                        stopSound = true;
+                    }
+                    
+                    if (stopSound === true) {
+                        if (this.ribbon.IsBegin()) {
+                            this.ribbon.End();
+                            steerSound.stop();
+                            if (game.keyboardInput.accelerate === 1) {
+                                if (!revShortSound.playing()) {
+                                    revShortSound.play();
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                this.ribbon.Update(dt);
+            }
+            
+            if (this.id === game.selfCar.id) {
+                if (!isMobile) {
+                    if(game.keyboardInput.accelerate === 1) {
+                        if (typeof this.playRevShort === 'undefined') {
+                            this.playRevShort = false;
+                        }
+                    
+                        if (this.playRevShort === false && !revShortSound.playing()) {
+                            revShortSound.play();
+                            this.playRevShort = true;
+                        }
+                    }
+                    else {
+                        this.playRevShort = false;
+                        revShortSound.stop();
+                    }
+                }else {
+                    if (game.joystickInput.dir.Length() > 0) {
+                        var redians = Math.atan2(game.joystickInput.dir.y, game.joystickInput.dir.x);
+                        var joyAng = NormalAngle(Util.Degrees(redians)-90);
+                        var carAng = NormalAngle(this.angle);
+                        var betweenAng = Math.abs(joyAng - carAng);
+                        if (betweenAng < 30) {
+                            if (typeof this.playRevShort === 'undefined') {
+                                this.playRevShort = false;
+                            }
+                        
+                            if (this.playRevShort === false && !revShortSound.playing()) {
+                                revShortSound.play();
+                                this.playRevShort = true;
+                            }
+                        }else {
+                            this.playRevShort = false;
+                            revShortSound.stop();
+                        }
+                    }else {
+                        this.playRevShort = false;
+                        revShortSound.stop();
+                    }
                 }
             }
         }
@@ -239,9 +388,16 @@
         Game.prototype.DrawPingText = function(ctx)
         {
             ctx.font="10px Verdana";
-            ctx.fillStyle="rgb(255,255,255)";
+            ctx.fillStyle="rgb(64,64,255)";
             var text = 'Ping: ' + this.net.pingInterval + 'ms';
             ctx.fillText(text, engine.designCanvasWidth - 80, 20);
+            
+            if (game.selfCar) {
+                text = "位置x: " + Math.ceil(game.selfCar.position.x);
+                ctx.fillText(text, engine.designCanvasWidth - 80, 40);
+                text = "位置y: " + Math.ceil(game.selfCar.position.y);
+                ctx.fillText(text, engine.designCanvasWidth - 80, 60);
+            }
         }
         
         
@@ -250,18 +406,33 @@
             if (typeof this.worldWidth !== 'undefined' && 
                 typeof this.worldHeight !== 'undefined') {
                 
-                ctx.beginPath();
-                ctx.strokeStyle = "#444";
-                for (var i = 0; i < this.worldWidth; i += 50) {
-                    ctx.moveTo(i, 0);
-                    ctx.lineTo(i, this.worldHeight);
+                if(typeof this.backCanvas === 'undefined') {
+                    this.backCanvas = document.createElement('canvas');
+                    this.backCanvasScale = 2.0;
+                    this.backCanvas.width = this.worldWidth/this.backCanvasScale;
+                    this.backCanvas.height = this.worldHeight/this.backCanvasScale;
+                    var context = this.backCanvas.getContext('2d');
+                    
+                    context.beginPath();
+                    context.strokeStyle = "	#CDCDB4";
+                    context.lineWidth = 1.0;
+                    for (var i = 0; i < this.backCanvas.width; i += 50/this.backCanvasScale) {
+                        context.moveTo(i, 0);
+                        context.lineTo(i, this.backCanvas.height);
+                    }
+                    for (var j = 0; j < this.backCanvas.height; j += 50/this.backCanvasScale) {
+                        context.moveTo(0, j);
+                        context.lineTo(this.backCanvas.width, j);
+                    }
+                    context.closePath();
+                    context.stroke();
                 }
-                for (var j = 0; j < this.worldHeight; j += 50) {
-                    ctx.moveTo(0, j);
-                    ctx.lineTo(this.worldWidth, j);
+                else {
+                    ctx.save();
+                    ctx.scale(this.backCanvasScale,this.backCanvasScale);
+                    ctx.drawImage(this.backCanvas, 0, this.backCanvas.height);
+                    ctx.restore();
                 }
-                ctx.closePath();
-                ctx.stroke();
             }
         }
         Game.prototype.DrawBound = function(ctx)
@@ -269,7 +440,7 @@
             if (typeof this.worldWidth !== 'undefined' && 
                 typeof this.worldHeight !== 'undefined') {
             
-                ctx.fillStyle = "#999";
+                ctx.fillStyle = "#6C7B8B";
                 ctx.fillRect(0, 0, this.worldWidth, 10);
                 ctx.fillRect(0, 0, 10, game.worldHeight);
                 ctx.fillRect(0,game.worldHeight-10, this.worldWidth, 10);
@@ -282,15 +453,17 @@
             var ctx = engine.context;
             ctx.save();
             
-            ctx.fillStyle="black";
+            ctx.fillStyle="#F8F8FF";
             ctx.fillRect(0,0, ctx.canvas.width, ctx.canvas.height);
             
             // 使用相机
             this.camera.Begin(ctx, engine.designCanvasWidth, engine.designCanvasHeight);
             this.DrawBackground(ctx);
             
-            for (var i = this.cars.length - 1; i >= 0; --i) {
-                this.cars[i].Draw(ctx);
+            for (var p = 0; p <= 1; ++p) {
+                for (var i = this.cars.length - 1; i >= 0; --i) {
+                    this.cars[i].Draw(ctx, p);
+                }
             }
             
             this.DrawBound(ctx);
@@ -323,6 +496,8 @@
                 game.cameraFllower.Attach(game.selfCar, new Vec2(0, 0), 1.0);
                 game.cars.push(car);
                 game.carsMap[car.id] = car;
+                
+                game.selfCar.ribbon = new Ribbon();
             });
             
             socket.on('playerList', function (data) {
@@ -359,6 +534,18 @@
                     game.carsMap[carId].serverPosition.y = data[idx + 2];
                     game.carsMap[carId].angle = data[idx + 3];
                 }
+            });
+            
+            socket.on('collisionWall', function (data) {
+                collisionWallSound.stop();
+                collisionWallSound.play();
+                game.cameraFllower.Shake(10,10, 0.5);
+            });
+            
+            socket.on('tailBeCol', function (data) {
+                collisionWallSound.stop();
+                collisionWallSound.play();
+                game.cameraFllower.Shake(10,10, 0.5);
             });
         }
         

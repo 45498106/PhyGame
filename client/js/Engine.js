@@ -1005,7 +1005,7 @@ function Input()
     this.mouse = {};
     this.mouse.x = 0;
     this.mouse.y = 0;
-    this.mouse.buttonsDown = [];
+    this.mouse.buttonsDown = {};
     this.mouse.constant = {
         0:"l",
         1:"m",
@@ -1300,7 +1300,7 @@ Sprite.prototype.Draw = function(ctx)
         ctx.drawImage(this.image,                           // 源图像
                       0, 0,                                 // 源图像起始x,y
                       this.image.width, this.image.height,  // 源图像尺寸
-                      -spriteWidth * this.anchorPointX, -spriteHeight * this.anchorPointY, //所要绘制在画布的起始x,y
+                      -Math.floor(spriteWidth * this.anchorPointX),  -Math.floor(spriteHeight * this.anchorPointY), //所要绘制在画布的起始x,y
                       spriteWidth, spriteHeight);           //所要绘制在画布的大小。
     }
 

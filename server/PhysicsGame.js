@@ -17,6 +17,8 @@ b2World = Box2D.Dynamics.b2World;
 b2MassData = Box2D.Collision.Shapes.b2MassData;
 b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape;
 b2CircleShape = Box2D.Collision.Shapes.b2CircleShape;
+b2ContactEdge = Box2D.Dynamics.Contacts.b2ContactEdge;
+b2ContactListener = Box2D.Dynamics.b2ContactListener;
 
 var Car = require('./Car.js');
 
@@ -33,7 +35,9 @@ function CreataStaticBox(game, w, h, x, y) {
     bodyDef.type = b2Body.b2_staticBody; //默认是静态的
     bodyDef.position.x = x * game.physics.gameScale;
     bodyDef.position.y = y * game.physics.gameScale;
-    game.physics.world.CreateBody(bodyDef).CreateFixture(fixDef);
+    var body = game.physics.world.CreateBody(bodyDef);
+    body.CreateFixture(fixDef);
+    return body;
 }
 
 function CreateDynamicBox(game, w, h, x, y, angle) {
@@ -57,6 +61,23 @@ function CreateDynamicBox(game, w, h, x, y, angle) {
     var body = game.physics.world.CreateBody(bodyDef);
     body.CreateFixture(fixDef);
     return body;
+}
+
+function CreateWorldBound(game, WorldWidht, WorldHeight)
+{
+    // 创建包围墙
+    var worldBound = { 'name' : "worldBound" };
+    
+    worldBound.down = CreataStaticBox(game, WorldWidht, 10, WorldWidht/2, 5);
+    worldBound.down.SetUserData(worldBound);
+    worldBound.left = CreataStaticBox(game, 10, WorldHeight, 5, WorldHeight/2);
+    worldBound.left.SetUserData(worldBound);
+    worldBound.up = CreataStaticBox(game, WorldWidht, 10, WorldWidht/2, WorldHeight-5);
+    worldBound.up.SetUserData(worldBound);
+    worldBound.right = CreataStaticBox(game, 10, WorldHeight, WorldWidht-5, WorldHeight/2);
+    worldBound.right.SetUserData(worldBound);
+    
+    return worldBound;
 }
 
 function getBodyAtMouse(game, mouseX, mouseY) {
@@ -102,10 +123,9 @@ PhysicsGame.prototype.Init = function()
     this.physics.bodys = [];
     
     // 创建包围墙
-    CreataStaticBox(this, WorldWidht, 10, WorldWidht/2, 5);
-    CreataStaticBox(this, 10, WorldHeight, 5, WorldHeight/2);
-    CreataStaticBox(this, WorldWidht, 10, WorldWidht/2, WorldHeight-5);
-    CreataStaticBox(this, 10, WorldHeight, WorldWidht-5, WorldHeight/2);
+    CreateWorldBound(this, WorldWidht, WorldHeight);
+    
+    this.ProcessCollision();
 
     // 设置更新
     setInterval(function(){
@@ -133,6 +153,30 @@ PhysicsGame.prototype.Update = function(dt)
                4       //position iterations
     );
     
+    
+    //for (var c = this.physics.world.GetContactList() ; c ; c = c.GetNext()){
+    //    var body1 = c.GetFixtureA().GetBody();
+    //    var body2 = c.GetFixtureB().GetBody();
+    //    if (body1.GetUserData().name === "car" || body2.GetUserData().name === "car") {
+    //        var car = body1.GetUserData().name === "car" ?  body1 : body2;
+    //        for (var ce = car.GetContactList(); ce !== null; ce = ce.next)
+    //        {
+    //             if (ce.contact.IsTouching())
+    //             {
+    //                //GameLog(body1.GetUserData().name, body2.GetUserData().name);
+    //                if (ce.other.GetUserData().name === "worldBound") {
+    //                    // Do what you want here
+    //                    //GameLog("11111111111");
+    //                }
+    //                else if (ce.other.GetUserData().name === "car") {
+    //                    //GameLog("22222222222");
+    //                }
+    //                break;
+    //             }
+    //        }
+    //    }
+    //}
+    
     var datas = [];
     for (var i = 0; i < this.players.length; ++i) {
         player = this.players[i];
@@ -141,9 +185,9 @@ PhysicsGame.prototype.Update = function(dt)
         carAng = Util.Degrees(player.car.GetAngle());
         
         datas.push(carId);
-        datas.push(parseInt(carPos.x));
-        datas.push(parseInt(carPos.y));
-        datas.push(parseInt(carAng));
+        datas.push(Math.round(carPos.x));
+        datas.push(Math.round(carPos.y));
+        datas.push(Math.ceil(carAng));
     }
     if (datas.length > 0) {
         this.BroadcastPlayers('physicsSynchro', datas);
@@ -151,6 +195,68 @@ PhysicsGame.prototype.Update = function(dt)
     
     // 放在最后
     this.physics.world.ClearForces();
+}
+
+PhysicsGame.prototype.ProcessCollision = function()
+{
+var listener = new b2ContactListener;
+    listener.BeginContact = function(contact) {
+        //var body1 = contact.GetFixtureA().GetBody();
+        //var body2 = contact.GetFixtureB().GetBody();
+        //GameLog("BeginContact", body1.GetUserData().name, body2.GetUserData().name);
+    }
+    listener.EndContact = function(contact) {
+        //var body1 = contact.GetFixtureA().GetBody();
+        //var body2 = contact.GetFixtureB().GetBody();
+        //GameLog("EndContact",body1.GetUserData().name, body2.GetUserData().name);
+    }
+    listener.PreSolve = function(contact, oldManifold) {
+        //var body1 = contact.GetFixtureA().GetBody();
+        //var body2 = contact.GetFixtureB().GetBody();
+        //GameLog("PreSolve",body1.GetUserData().name, body2.GetUserData().name);
+    }
+    listener.PostSolve = function(contact, impulse) {
+        var body1 = contact.GetFixtureA().GetBody();
+        var body2 = contact.GetFixtureB().GetBody();
+        //GameLog("PostSolve",body1.GetUserData().name, body2.GetUserData().name, impulse);
+        if (body1.GetUserData().name === "car" || body2.GetUserData().name === "car")
+        {
+            var carBody,otherBody;
+            if (body1.GetUserData().name === "car") {
+                carBody = body1; otherBody = body2;
+            }else {
+                carBody = body2; otherBody = body1;
+            }
+            
+            if (otherBody.GetUserData().name === "worldBound"){
+                if (impulse.normalImpulses[0] > 20) {
+                    
+                    var car = carBody.GetUserData();
+                    car.player.socket.emit("collisionWall");
+                }
+                
+            
+            }else if (otherBody.GetUserData().name === "car") {
+                
+                if (impulse.normalImpulses[0] > 10) {
+                    if (contact.GetFixtureA().GetUserData().name == "car_tail") {
+                        //GameLog("peng car_tail");
+                        var car = contact.GetFixtureA().GetBody().GetUserData();
+                        car.player.socket.emit("tailBeCol",  { 'attackerCarId' : contact.GetFixtureB().GetBody().GetUserData().id });
+                        
+                    }
+                    
+                    if (contact.GetFixtureB().GetUserData().name == "car_tail") {
+                        var car = contact.GetFixtureB().GetBody().GetUserData();
+                        car.player.socket.emit("tailBeCol",  { 'attackerCarId' : contact.GetFixtureA().GetBody().GetUserData().id });
+                    }
+                }
+                
+                GameLog(contact.GetFixtureA().GetUserData().name, "peng", contact.GetFixtureB().GetUserData().name, impulse.normalImpulses[0]);
+            }
+        }
+    }
+    this.physics.world.SetContactListener(listener);
 }
 
 PhysicsGame.prototype.NewCarId = function()
@@ -171,8 +277,8 @@ PhysicsGame.prototype.NewClient = function(client)
         }
         
         var newPlayer = { 'id' : socket.id,
-                          'socket' : socket, 
-                          'car' : new Car(server, server.NewCarId(), 100, 100) };
+                          'socket' : socket };
+        newPlayer.car = new Car(server, newPlayer, server.NewCarId(), 100 + Math.random() * 200, 100 + Math.random() * 200);
 
         client.player = newPlayer; 
         

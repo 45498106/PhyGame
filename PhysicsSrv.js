@@ -6,6 +6,7 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 
+/*
 var AV = require('leanengine');
 AV.init({
   appId: process.env.LEANCLOUD_APP_ID || 'rH2mPgbjWGEf228we1rNQxMw-9Nh9j0Va',
@@ -13,6 +14,7 @@ AV.init({
   masterKey: process.env.LEANCLOUD_APP_MASTER_KEY || 'hAC6X9v0Ya7bvsM46NNLKLfE'
 });
 app.use(AV.express());
+*/
 
 app.use(express.static(__dirname + "/client"));
 

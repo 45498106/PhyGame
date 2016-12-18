@@ -9,7 +9,8 @@ function Wheel(game, car, x, y, revolving, angle)
     this.position = new b2Vec2(x*game.physics.gameScale, y*game.physics.gameScale);
     var fixDef = new b2FixtureDef;
     fixDef.density = 0.1;
-    fixDef.isSensor = true; //轮子不参与碰撞
+    fixDef.isSensor = true; //轮子不参与碰撞(传感器)
+    fixDef.filter.maskBits = 0x0000; //禁止碰撞
     fixDef.shape = new b2PolygonShape();
     fixDef.shape.SetAsBox(
         4*game.physics.gameScale, //half width
@@ -23,6 +24,8 @@ function Wheel(game, car, x, y, revolving, angle)
     var body = game.physics.world.CreateBody(bodyDef);
     body.CreateFixture(fixDef);
     this.body = body;
+    this.body.SetUserData(this);
+    this.name = revolving ? "frontWheel" : "backWheel";
     this.car = car;
     
     var jointdef;
@@ -75,21 +78,14 @@ function Wheel(game, car, x, y, revolving, angle)
     }
 }
         
-function Car(game, id, x, y)
+function Car(game, player, id, x, y)
 {
     this.game = game;
+    this.player = player;
     this.id = id;
     this.position = new b2Vec2(x*game.physics.gameScale, y*game.physics.gameScale);
     this.enginePower = 35;
-    var fixDef = new b2FixtureDef;
-    fixDef.density=0.1;
-    fixDef.restitution=0.4;
-    fixDef.shape = new b2PolygonShape;
-    fixDef.shape.SetAsBox(
-        15*game.physics.gameScale, //half width
-        30*game.physics.gameScale //half height
-    );
-    
+       
     var bodyDef = new b2BodyDef;
     bodyDef.type = b2Body.b2_dynamicBody;
     bodyDef.linearDamping=0.5;
@@ -97,8 +93,63 @@ function Car(game, id, x, y)
     bodyDef.position.x = this.position.x;
     bodyDef.position.y = this.position.y;
     var body = game.physics.world.CreateBody(bodyDef);
-    body.CreateFixture(fixDef);
     this.body = body;
+    this.body.SetUserData(this);
+    this.name = "car";
+    
+    var halfW = 15*game.physics.gameScale;
+    var halfH = 30*game.physics.gameScale;
+    var thickness = 0.8;
+    
+    var fixDef = new b2FixtureDef;
+    fixDef.density=0.1;
+    fixDef.restitution=0.4;
+    fixDef.shape = new b2PolygonShape;
+    
+    var vecs = [];
+    vecs.push(new b2Vec2(-halfW,-halfH));
+    vecs.push(new b2Vec2( halfW,-halfH));
+    vecs.push(new b2Vec2( halfW,-halfH+thickness));
+    vecs.push(new b2Vec2(-halfW,-halfH+thickness));
+    fixDef.shape.SetAsArray(vecs, vecs.length);
+    fixDef.userData = {"name":"car_tail"};
+    body.CreateFixture(fixDef);
+    
+    vecs = [];
+    vecs.push(new b2Vec2( halfW, halfH));
+    vecs.push(new b2Vec2(-halfW, halfH));
+    vecs.push(new b2Vec2(-halfW, halfH-thickness));
+    vecs.push(new b2Vec2( halfW, halfH-thickness));
+    fixDef.shape.SetAsArray(vecs, vecs.length);
+    fixDef.userData = {"name":"car_head"};
+    body.CreateFixture(fixDef);
+    
+    vecs = [];
+    vecs.push(new b2Vec2(-halfW,          -halfH+thickness));
+    vecs.push(new b2Vec2(-halfW+thickness,-halfH+thickness));
+    vecs.push(new b2Vec2(-halfW+thickness, halfH-thickness));
+    vecs.push(new b2Vec2(-halfW,           halfH-thickness));
+    fixDef.shape.SetAsArray(vecs, vecs.length);
+    fixDef.userData = {"name":"car_left"};
+    body.CreateFixture(fixDef);
+    
+    vecs = [];
+    vecs.push(new b2Vec2(halfW-thickness,-halfH+thickness));
+    vecs.push(new b2Vec2(halfW,          -halfH+thickness));
+    vecs.push(new b2Vec2(halfW,           halfH-thickness));
+    vecs.push(new b2Vec2(halfW-thickness, halfH-thickness));
+    fixDef.shape.SetAsArray(vecs, vecs.length);
+    fixDef.userData = {"name":"car_right"};
+    body.CreateFixture(fixDef);
+    
+    vecs = [];
+    vecs.push(new b2Vec2(-halfW+thickness,-halfH+thickness));
+    vecs.push(new b2Vec2( halfW-thickness,-halfH+thickness));
+    vecs.push(new b2Vec2( halfW-thickness, halfH-thickness));
+    vecs.push(new b2Vec2(-halfW+thickness, halfH-thickness));
+    fixDef.shape.SetAsArray(vecs, vecs.length);
+    fixDef.userData = {"name":"car_body"};
+    body.CreateFixture(fixDef);
     
     var pos = this.body.GetWorldPoint(new b2Vec2(0,0));
     this.frontWheel = new Wheel(game, this, 0, 15, true, 0);
